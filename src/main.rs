@@ -1,24 +1,11 @@
-#![warn(clippy::str_to_string)]
-
-#[path = "commands/color.rs"]
-mod color;
-#[path = "commands/get_linked_account.rs"]
-mod get_linked_account;
-#[path = "commands/uptime.rs"]
-mod uptime;
-
 mod commands;
-
-#[path = "data/database.rs"]
-mod database;
-#[path = "data/update_uptime.rs"]
-mod update_uptime;
+mod data;
 
 use std::env::var;
 use std::sync::Arc;
 use std::time::Duration;
 
-use database::{create_uptime_table, create_users_table};
+use data::database::{create_uptime_table, create_users_table};
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
 use r2d2::Pool;
@@ -30,10 +17,10 @@ mod types {
 	pub type Context<'a> = poise::Context<'a, super::Data, Error>;
 }
 
-// Custom user data passed to all command functions
 pub struct Data {
 	api_key:        String,
 	uptime_db_pool: Pool<SqliteConnectionManager>,
+	error_color:    u32,
 }
 
 async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
@@ -54,21 +41,34 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
 	}
 }
 
+pub trait ExpectError<T> {
+	fn expect_error(
+		self,
+		msg: &str,
+	) -> T;
+}
+
+impl<T, E: std::fmt::Debug> ExpectError<T> for Result<T, E> {
+	fn expect_error(
+		self,
+		msg: &str,
+	) -> T {
+		self.expect(&format!("\x1b[31;1m[ERROR] {}\x1b[0m", msg))
+	}
+}
+
 #[tokio::main]
 async fn main() {
 	dotenv().ok();
 	env_logger::init();
 
-	let api_key = var("API_KEY").expect("\x1b[31;1m[ERROR] Missing `API_KEY` env var, please include this in the environment variables or features may not work\x1b[0m");
+	let api_key = var("API_KEY")
+		.expect_error("Missing `API_KEY` env var, please include this in your .env file");
 
 	let options = poise::FrameworkOptions {
-		commands: vec![
-			get_linked_account::get_linked_account(),
-			uptime::uptime(),
-			color::color(),
-		],
+		commands: commands::get_all_commands(),
 		prefix_options: poise::PrefixFrameworkOptions {
-			prefix: Some(";".into()),
+			prefix: Some("-".into()),
 			edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(
 				Duration::from_secs(3600),
 			))),
@@ -85,14 +85,6 @@ async fn main() {
 				println!("[COMMAND] completed {}", ctx.command().qualified_name);
 			})
 		},
-		command_check: Some(|ctx| {
-			Box::pin(async move {
-				if ctx.author().id == 123456789 {
-					return Ok(false);
-				}
-				Ok(true)
-			})
-		}),
 		skip_checks_for_owners: false,
 		event_handler: |_ctx, event, _framework, _data| {
 			Box::pin(async move {
@@ -103,10 +95,10 @@ async fn main() {
 		..Default::default()
 	};
 
-	create_users_table().expect("\x1b[31;1m[ERROR] Failed to create database 'users'\x1b[0m\n\n");
-	create_uptime_table().expect("\x1b[31;1m[ERROR] Failed to create database 'uptime'\x1b[0m\n\n");
+	create_users_table().expect_error("Failed to create database 'users'\n\n");
+	create_uptime_table().expect_error("Failed to create database 'uptime'\n\n");
 
-	// create uptime connection pool
+	// create uptime db connection pool
 	let manager = SqliteConnectionManager::file("src/data/uptime.db")
 		.with_flags(rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE);
 	let uptime_db_pool = Pool::new(manager).expect("Failed to create database pool");
@@ -120,6 +112,7 @@ async fn main() {
 				Ok(Data {
 					api_key: clone_api_key,
 					uptime_db_pool,
+					error_color: 0x383838,
 				})
 			})
 		})
@@ -128,7 +121,7 @@ async fn main() {
 
 	tokio::task::spawn_blocking(move || {
 		if let Err(err) =
-			tokio::runtime::Handle::current().block_on(update_uptime::update_uptime(&api_key))
+			tokio::runtime::Handle::current().block_on(data::update_uptime::update_uptime(&api_key))
 		{
 			eprintln!(
 				"\x1b[31;1m[ERROR] Error in uptime tracker:\x1b[0m\n\n{:?}",
@@ -138,7 +131,7 @@ async fn main() {
 	});
 
 	let token = var("BOT_TOKEN").expect(
-		"\x1b[31;1m[ERROR] Missing `BOT_TOKEN` env var, please include this in the environment variables\x1b[0m",
+		"\x1b[31;1m[ERROR] Missing `BOT_TOKEN` env var, please include this in your .env file",
 	);
 	let intents =
 		serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;

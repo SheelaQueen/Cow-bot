@@ -8,7 +8,7 @@ use serenity::json::Value;
 
 use crate::commands::utils::get_account_from_anything;
 
-#[path = "../commands/uptime.rs"]
+#[path = "../commands/uptime_command.rs"]
 mod uptime;
 
 #[derive(Debug)]
@@ -71,26 +71,34 @@ pub async fn update_uptime(api_key: &str) -> Result<(), Error> {
 
 		println!("Updating Uptime for {} players", players.len());
 
+		let mut no_guild: u16 = 0;
 		for player in players {
 			if processed_uuids.contains(&player) {
 				continue;
 			}
 
-			match get_guild_uptime_data(api_key, player.clone()).await {
+			match get_guild_uptime_data(api_key, player.clone()).await.map_err(Into::into) {
 				| Ok((guild_id, member_uptime_history)) => {
 					for (player_uuid, uptime_history) in member_uptime_history {
 						processed_uuids.insert(player_uuid.clone());
 						update_player_records(&conn, &guild_id, &player_uuid, uptime_history)?;
 					}
 				},
-				| Err(e) => {
-					eprintln!("\x1b[93m[WARN] updating uptime: {}\x1b[0m", e);
+				| Err(Error::NoGuild(_)) => {
+					no_guild += 1;
 					continue;
-				},
+				}
+				| Err(_) => continue,
 			}
 		}
+		if no_guild > 0 {
+			println!(
+				"\x1b[34m[INFO] {} players are no longer in a guild\x1b[0m",
+				no_guild
+			);
+		}
 
-		tokio::time::sleep(Duration::from_secs(3 * 60 * 60)).await;
+		tokio::time::sleep(Duration::from_secs(3 * 60 * 60)).await; // 3 hours
 	}
 }
 
