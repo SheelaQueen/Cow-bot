@@ -2,24 +2,23 @@ use poise::{CreateReply, serenity_prelude as serenity};
 use rusqlite::{Connection, params};
 use serenity::all::CreateEmbed;
 
+use super::utils::create_error_embed;
 use crate::{Context, Error};
 
-#[poise::command(slash_command)]
+#[poise::command(slash_command, prefix_command, invoke_on_edit, reuse_response)]
 pub async fn color(
 	ctx: Context<'_>,
 	#[description = "Hex code"] color: String,
 ) -> Result<(), Error> {
 	let user = ctx.author();
 	let user_id = user.id.to_string();
-	let username = user.name.clone();
+	let username = &user.name;
 
 	let color = color.replace("#", "");
 
 	if !color.chars().all(|c| c.is_digit(16)) || color.len() != 6 {
-		let embed = CreateEmbed::default()
-			.title("Error")
-			.description("Invalid hex code. Please provide a valid 6-character hex code.")
-			.colour(0xa10d0d);
+		let embed =
+			create_error_embed("Invalid hex code. Please provide a valid 6-character hex code.");
 		ctx.send(CreateReply::default().embed(embed)).await?;
 		return Ok(());
 	}
@@ -42,7 +41,7 @@ pub async fn color(
 		} else {
 			conn.execute(
 				"INSERT INTO users (username, userid, color) VALUES (?1, ?2, ?3)",
-				params![username, user_id, color_but_with_thingy],
+				params![*username, user_id, color_but_with_thingy],
 			)?;
 		}
 	}
@@ -50,7 +49,7 @@ pub async fn color(
 	let embed = CreateEmbed::default()
 		.title("Color Updated")
 		.description("Your color has been updated successfully!")
-		.colour(color_value);
+		.color(color_value);
 	ctx.send(CreateReply::default().embed(embed)).await?;
 	Ok(())
 }

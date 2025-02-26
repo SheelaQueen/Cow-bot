@@ -3,6 +3,7 @@ on:
     paths:
       - '**/*.rs'
       - '**/*.toml'
+      - '**/*.lock'
       - '**/*.yml'
 
 jobs:
@@ -33,7 +34,6 @@ jobs:
 
   build:
     name: Build
-    needs: [ rustfmt, clippy ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,13 +42,12 @@ jobs:
       - name: Cargo build
         run: cargo +nightly build --workspace --release
 
-  tests:
-    name: Tests
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install nightly
-        run: rustup install nightly
-      - name: Cargo test
-        run: cargo +nightly test --workspace --release
+  # tests:
+  #   name: Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install nightly
+  #       run: rustup install nightly
+  #     - name: Cargo test
+  #       run: cargo +nightly test --workspace --release

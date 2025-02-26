@@ -11,29 +11,13 @@ Features
 - Get a user's mojang info - `/get_linked_account`
 - Get a user's estimated hypixel uptime - `/uptime`
 - Set your custom color for the bot - `/color`
+- Feature rich tag system nearly identitical to that of Fire's
 
 <h2 align="center">
-Set up
+Contribute
 </h2>
 
-### Prerequisites
-
-- Git
-- Rust
-- [msvc build tools](https://visualstudio.microsoft.com/downloads/?q=build+tools)
-    - You can also use this [gist](https://gist.github.com/mmozeiko/7f3162ec2988e81e56d5c4e22cde9977) if you just need
-      the build tools for rust
-- sqlite3
-- A Discord bot
-- [Hypixel api key](https://developer.hypixel.net/)
-
-### Steps
-
-- Clone the repository `git clone https://github.com/Not-a-cowfr/Cow-bot`
-- Add required environment variables
-    - `DISCORD_TOKEN` - Your discord bot's token
-    - `API_KEY` - Your hypixel api key
-- Run `cargo run` in the root directory
+Check out the [Contributing guide](/CONTRIBUTING.md) for more info on how get things set up
 
 <h2 align="center">
 Credits
